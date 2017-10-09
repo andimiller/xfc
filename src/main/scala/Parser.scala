@@ -2,11 +2,14 @@ import fastparse._
 
 import scala.collection.immutable.NumericRange
 
-object Parser {
+object Parser extends App {
   import all._
   implicit def chars(r: Range.Inclusive): NumericRange.Inclusive[Char] = r.start.toChar to r.end.toChar
 
-  val S = " "
+  val S = P(CharIn(Seq(0x20.toChar, 0x9.toChar, 0xD.toChar, 0xA.toChar))).rep
+  val space = P(CharIn(List(0x20.toChar)))
+  val digit = P(CharIn(0 to 9))
+  val hex = List[NumericRange.Inclusive[Char]]('a' to 'z', 'A' to 'Z', 0 to 9).map(x => P(CharIn(x))).reduce(_ | _)
 
   val NameStartChar = List[NumericRange.Inclusive[Char]](
     'A' to 'Z',
@@ -22,14 +25,37 @@ object Parser {
     0x3001 to 0xd7ff,
     0xf900 to 0xfdcf,
     0xfdf0 to 0xfffd,
-    0x10000 to 0xefff
+    0x10000 to 0xeffff
   ).map(x => P(CharIn(x))).:+(P(CharIn(":_"))).reduce(_ | _)
 
-  val NameChar = NameStartChar | P(CharIn("-.")) | P(CharIn('0' to '9'))
-  //#xB7 | [#x0300-#x036F] | [#x203F-#x2040]
+  val NameChar = List[NumericRange.Inclusive[Char]](
+    '0' to '9',
+    0x0300 to 0x036f,
+    0x203f to 0x2040
+  ).map(x => P(CharIn(x))).++(List(P(CharIn("-.")), NameStartChar)).reduce(_ | _)
+
 
   val Name = NameStartChar ~ NameChar.rep
+  val Names = Name ~ (space ~ Name).rep
+  val Nmtoken = NameChar.rep
+  val Nmtokens = Nmtoken ~ (space ~ Nmtoken).rep
+
+
+  val CharRef = P("&#" ~ digit ~ digit.rep ~ ";") | P("&#x" ~ hex ~ hex.rep ~ ";")
+
+  val Reference = P(EntityRef | CharRef)
+  val EntityRef = P("&" ~ Name.! ~ ";")
+  val PEReference = P("%" ~ Name.! ~ ";")
+
+
+
+
+
+  val EntityValue = P("\"" ~ (P()))
+
+
   val startTag = P("<" ~ ">")
+
 
 
 }
